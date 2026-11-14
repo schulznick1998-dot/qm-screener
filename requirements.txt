@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn>=0.27
+pandas>=2.0
+numpy>=1.26
+pyarrow>=14
+requests>=2.31
+alpaca-py>=0.20
+certifi>=2023.7

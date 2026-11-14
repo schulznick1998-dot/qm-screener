@@ -1,0 +1,232 @@
+//@version=6
+// ════════════════════════════════════════════════════════════════
+// NS All-in-One · Linien + Stückzahl-Rechner + Kennzahlen-Tabelle
+// EMA 9 / 20 / 50 + SMA 200 (identisch mit den TradingView-Standards)
+// Rechner: Indikator anklicken → ⋯ → „Punkte zurücksetzen“ → Einstieg und Stop anklicken.
+// Volumen kommt als zweites Script („NS Volumen“) in ein eigenes Fenster.
+// ════════════════════════════════════════════════════════════════
+indicator("NS All-in-One", shorttitle = "NS AIO", overlay = true, max_lines_count = 20, max_labels_count = 20)
+
+// ───────────── Einstellungen: Linien ─────────────
+G_MA = "Gleitende Durchschnitte"
+showE1 = input.bool(true, "EMA", inline = "e1", group = G_MA, display = display.none)
+lenE1  = input.int(9, "", minval = 1, inline = "e1", group = G_MA, display = display.none)
+colE1  = input.color(#00bcd4, "", inline = "e1", group = G_MA, display = display.none)
+showE2 = input.bool(true, "EMA", inline = "e2", group = G_MA, display = display.none)
+lenE2  = input.int(20, "", minval = 1, inline = "e2", group = G_MA, display = display.none)
+colE2  = input.color(#4caf50, "", inline = "e2", group = G_MA, display = display.none)
+showE3 = input.bool(true, "EMA", inline = "e3", group = G_MA, display = display.none)
+lenE3  = input.int(50, "", minval = 1, inline = "e3", group = G_MA, display = display.none)
+colE3  = input.color(#ff9800, "", inline = "e3", group = G_MA, display = display.none)
+showS4 = input.bool(true, "SMA", inline = "s4", group = G_MA, display = display.none)
+lenS4  = input.int(200, "", minval = 1, inline = "s4", group = G_MA, display = display.none)
+colS4  = input.color(#f44336, "", inline = "s4", group = G_MA, display = display.none)
+lwMA   = input.int(1, "Linienstärke", minval = 1, maxval = 4, group = G_MA, display = display.none)
+
+// ───────────── Einstellungen: Stückzahl-Rechner ─────────────
+G_POS = "Stückzahl-Rechner"
+showCalc = input.bool(true, "Rechner an", group = G_POS, display = display.none)
+riskAmt = input.float(10.0, "Risiko pro Trade", minval = 0.1, step = 1.0, inline = "r", group = G_POS, display = display.none)
+riskCur = input.string("EUR", "", options = ["EUR", "USD"], inline = "r", group = G_POS, display = display.none)
+entryT  = input.time(0, "Einstieg", confirm = true, inline = "en", group = G_POS, display = display.none)
+entryP  = input.price(0.0, "", confirm = true, inline = "en", group = G_POS, display = display.none)
+stopT   = input.time(0, "Stop", confirm = true, inline = "st", group = G_POS, display = display.none)
+stopP   = input.price(0.0, "", confirm = true, inline = "st", group = G_POS, display = display.none)
+showR   = input.bool(false, "Ziele 2R und 3R anzeigen", group = G_POS, display = display.none)
+showAdr = input.bool(true, "1-ADR-Linie (max. Stop) anzeigen", group = G_POS, display = display.none)
+colEntry = input.color(#2962ff, "Farbe Einstieg", inline = "c", group = G_POS, display = display.none)
+colStop  = input.color(#f23645, "Stop", inline = "c", group = G_POS, display = display.none)
+
+// ───────────── Einstellungen: Tabelle ─────────────
+G_TAB = "Kennzahlen-Tabelle"
+showTab = input.bool(true, "Tabelle anzeigen", group = G_TAB, display = display.none)
+tabStyle = input.string("Clean", "Stil", options = ["Clean", "Box"], group = G_TAB, display = display.none)
+tabPos  = input.string("oben rechts", "Position", options = ["oben rechts", "mitte rechts", "unten rechts", "oben links", "unten links"], group = G_TAB, display = display.none)
+tabFont = input.int(11, "Schriftgröße (Punkte)", minval = 6, maxval = 24, group = G_TAB, display = display.none)
+tabGap  = input.float(4.0, "Abstand vom rechten Rand (%)", minval = 0, maxval = 30, step = 0.5, group = G_TAB, display = display.none)
+tabTop  = input.float(4.0, "Abstand von oben (%)", minval = 0, maxval = 50, step = 0.5, group = G_TAB, display = display.none)
+adrLen  = input.int(20, "ADR-Länge (Tage)", minval = 2, group = G_TAB, display = display.none)
+volLen  = input.int(20, "Ø Volumen-Länge (Tage)", minval = 2, group = G_TAB, display = display.none)
+earnWarn = input.int(5, "Earnings-Warnung ab Tagen", minval = 0, group = G_TAB, display = display.none)
+rsBench = input.symbol("AMEX:SPY", "RS-Vergleich mit", group = G_TAB, display = display.none)
+
+G_ROW = "Tabelle: welche Zeilen"
+rStk  = input.bool(true,  "Stückzahl und Risiko (wenn Rechner aktiv)", group = G_ROW, display = display.none)
+rMcap = input.bool(true,  "Marktkapitalisierung", group = G_ROW, display = display.none)
+rAdr  = input.bool(true,  "ADR %", group = G_ROW, display = display.none)
+rDv   = input.bool(true,  "Ø $-Volumen", group = G_ROW, display = display.none)
+rAv   = input.bool(false, "Ø Volumen (Stück)", group = G_ROW, display = display.none)
+rRvol = input.bool(true,  "RVOL (Volumen heute vs. Ø)", group = G_ROW, display = display.none)
+rRs   = input.bool(true,  "RS", group = G_ROW, display = display.none)
+rDist = input.bool(false, "Abstände zu EMAs/SMA", group = G_ROW, display = display.none)
+rSec  = input.bool(true,  "Sektor", group = G_ROW, display = display.none)
+rInd  = input.bool(true,  "Branche", group = G_ROW, display = display.none)
+rEarn = input.bool(true,  "Earnings in X Tagen", group = G_ROW, display = display.none)
+
+// ───────────── Gleitende Durchschnitte (wie TradingView) ─────────────
+e1 = ta.ema(close, lenE1)
+e2 = ta.ema(close, lenE2)
+e3 = ta.ema(close, lenE3)
+s4 = ta.sma(close, lenS4)
+plot(showE1 ? e1 : na, "EMA 1", colE1, lwMA)
+plot(showE2 ? e2 : na, "EMA 2", colE2, lwMA)
+plot(showE3 ? e3 : na, "EMA 3", colE3, lwMA)
+plot(showS4 ? s4 : na, "SMA", colS4, lwMA)
+
+// ───────────── Tagesdaten (gleich auf jedem Zeitrahmen) ─────────────
+[adrD, avgVolD, dVolD, volD, prevAvgVolD, closeD] = request.security(syminfo.tickerid, "D",
+     [100 * (ta.sma(high / low, adrLen) - 1), ta.sma(volume, volLen), ta.sma(close * volume, volLen), volume, ta.sma(volume, volLen)[1], close],
+     lookahead = barmerge.lookahead_off)
+rvol = prevAvgVolD > 0 ? volD / prevAvgVolD : na
+
+// ───────────── Relative Stärke (IBD-Gewichtung: 40 % letztes Quartal, je 20 % die 3 Quartale davor) ─────────────
+f_perf() =>
+    0.4 * (close / close[63] - 1) + 0.2 * (close / close[126] - 1) + 0.2 * (close / close[189] - 1) + 0.2 * (close / close[252] - 1)
+perfS = request.security(syminfo.tickerid, "D", f_perf(), lookahead = barmerge.lookahead_off)
+perfB = request.security(rsBench, "D", f_perf(), lookahead = barmerge.lookahead_off)
+rsVal = (perfS - perfB) * 100
+benchD = request.security(rsBench, timeframe.period, close, lookahead = barmerge.lookahead_off)
+rsLine = close / benchD
+rsOk   = timeframe.isdaily or timeframe.isweekly
+rsNear = rsOk and rsLine >= ta.highest(rsLine, timeframe.isweekly ? 52 : 252) * 0.98
+rsName = str.contains(rsBench, ":") ? array.get(str.split(rsBench, ":"), 1) : rsBench
+
+// EUR/USD für die Umrechnung
+eurusd = request.security("FX_IDC:EURUSD", "D", close, lookahead = barmerge.lookahead_off)
+
+// ───────────── Stückzahl ─────────────
+riskUSD  = riskCur == "EUR" ? riskAmt * eurusd : riskAmt
+perShare = math.abs(entryP - stopP)
+hasPts   = entryP > 0 and stopP > 0 and perShare > 0
+nearPx   = showCalc and hasPts and math.abs(entryP / close - 1) < 0.5     // Punkte gehören zu dieser Aktie
+shares   = nearPx ? math.floor(riskUSD / perShare) : na
+realUSD  = shares * perShare
+realEUR  = realUSD / eurusd
+posUSD   = shares * entryP
+stopPct  = nearPx ? perShare / entryP * 100 : na
+stopAdr  = nearPx and adrD > 0 ? stopPct / adrD : na
+isLong   = entryP > stopP
+
+f_num(x, d) => na(x) ? "–" : str.tostring(x, d == 0 ? "#,##0" : d == 1 ? "#,##0.0" : "#,##0.00")
+
+var line  lE  = na
+var line  lS  = na
+var line  l2  = na
+var line  l3  = na
+var label lbE = na
+var label lbS = na
+var label lb2 = na
+var label lb3 = na
+var line  lA  = na
+var label lbA = na
+cWarnL = #ff9800
+
+if barstate.islast
+    line.delete(lE)
+    line.delete(lS)
+    line.delete(l2)
+    line.delete(l3)
+    label.delete(lbE)
+    label.delete(lbS)
+    label.delete(lb2)
+    label.delete(lb3)
+    line.delete(lA)
+    label.delete(lbA)
+    if nearPx
+        x1 = entryT > 0 and stopT > 0 ? math.min(entryT, stopT) : time - 20 * timeframe.in_seconds() * 1000
+        x2 = time + 8 * timeframe.in_seconds() * 1000
+        lE := line.new(x1, entryP, x2, entryP, xloc = xloc.bar_time, color = colEntry, width = 2)
+        lS := line.new(x1, stopP, x2, stopP, xloc = xloc.bar_time, color = colStop, width = 2)
+        tE = str.tostring(shares) + " Stk  ·  " + f_num(posUSD, 0) + " $\nRisiko " + f_num(realEUR, 2) + " € / " + f_num(realUSD, 2) + " $"
+        lbE := label.new(x2, entryP, tE, style = label.style_label_left, xloc = xloc.bar_time, color = colEntry, textcolor = color.white, size = size.normal)
+        tS = "Stop " + (isLong ? "−" : "+") + f_num(stopPct, 1) + " %  ·  " + f_num(stopAdr, 2) + " ADR"
+        lbS := label.new(x2, stopP, tS, style = label.style_label_left, xloc = xloc.bar_time, color = stopAdr > 1 ? cWarnL : colStop, textcolor = color.white, size = size.small)
+        if showAdr and adrD > 0
+            adrPx = isLong ? entryP * (1 - adrD / 100) : entryP * (1 + adrD / 100)
+            lA := line.new(x1, adrPx, x2, adrPx, xloc = xloc.bar_time, color = color.new(#ff9800, 20), width = 1, style = line.style_dotted)
+            lbA := label.new(x2, adrPx, "1 ADR  " + f_num(adrPx, 2) + (stopAdr > 1 ? "  ⚠ Stop zu weit" : "  ✓ Stop innerhalb"), style = label.style_label_left, xloc = xloc.bar_time, color = color.new(#ff9800, 20), textcolor = color.white, size = size.small)
+        if showR
+            dir = isLong ? 1 : -1
+            t2 = entryP + dir * 2 * perShare
+            t3 = entryP + dir * 3 * perShare
+            l2 := line.new(x1, t2, x2, t2, color = color.new(#089981, 30), width = 1, style = line.style_dashed, xloc = xloc.bar_time)
+            l3 := line.new(x1, t3, x2, t3, color = color.new(#089981, 30), width = 1, style = line.style_dashed, xloc = xloc.bar_time)
+            lb2 := label.new(x2, t2, "2R  " + f_num(t2, 2), style = label.style_label_left, xloc = xloc.bar_time, color = color.new(#089981, 30), textcolor = color.white, size = size.tiny)
+            lb3 := label.new(x2, t3, "3R  " + f_num(t3, 2), style = label.style_label_left, xloc = xloc.bar_time, color = color.new(#089981, 30), textcolor = color.white, size = size.tiny)
+
+// ───────────── Kennzahlen-Tabelle ─────────────
+pos  = tabPos == "oben rechts" ? position.top_right : tabPos == "mitte rechts" ? position.middle_right : tabPos == "unten rechts" ? position.bottom_right : tabPos == "oben links" ? position.top_left : position.bottom_left
+tsz  = tabFont
+clean = tabStyle == "Clean"
+cTxt = clean ? chart.fg_color : color.new(#d1d4dc, 0)
+cLbl = clean ? color.new(chart.fg_color, 35) : color.new(#868993, 0)
+cPos = #22ab94
+cNeg = #f23645
+cWarn = #ff9800
+cBg  = clean ? color.new(color.black, 100) : color.new(#131722, 10)
+cNo  = color.new(color.black, 100)
+var table t = table.new(pos, 3, 20, frame_width = 0, border_width = 0)
+
+f_row(r, k, v, c) =>
+    table.cell(t, 0, r, k, text_color = cLbl, text_size = tsz, text_halign = clean ? text.align_right : text.align_left, bgcolor = cBg)
+    table.cell(t, 1, r, v, text_color = c, text_size = tsz, text_halign = clean ? text.align_left : text.align_right, bgcolor = cBg)
+    if tabGap > 0
+        table.cell(t, 2, r, "", width = tabGap, bgcolor = cNo)
+
+f_dist(ma) =>
+    d = (close / ma - 1) * 100
+    a = adrD > 0 ? d / adrD : na
+    [na(ma) ? "–" : (d >= 0 ? "+" : "") + f_num(d, 1) + " %  (" + f_num(a, 1) + " ADR)", d >= 0 ? cPos : cNeg]
+
+if barstate.islast and showTab
+    table.clear(t, 0, 0, 2, 19)
+    r = 0
+    if tabTop > 0 and pos != position.middle_right
+        table.cell(t, 0, 0, "", height = tabTop, bgcolor = cNo)
+        r := 1
+    if nearPx and rStk
+        f_row(r, "Stückzahl", str.tostring(shares) + " Stk", cTxt)
+        r += 1
+        f_row(r, "Risiko", f_num(realEUR, 2) + " € · " + f_num(stopPct, 1) + " % · " + f_num(stopAdr, 2) + " ADR", stopAdr > 1 ? cWarn : cTxt)
+        r += 1
+    if rMcap
+        shTot = syminfo.shares_outstanding_total
+        f_row(r, "Market Cap", na(shTot) ? "–" : str.tostring(shTot * closeD, format.volume), cTxt)
+        r += 1
+    if rAdr
+        f_row(r, "ADR%", f_num(adrD, 2) + "%", cTxt)
+        r += 1
+    if rDv
+        f_row(r, "Avg $ Vol", na(dVolD) ? "–" : "$" + str.tostring(dVolD, format.volume), dVolD < 5e6 ? cWarn : cTxt)
+        r += 1
+    if rAv
+        f_row(r, "Avg Vol", na(avgVolD) ? "–" : str.tostring(avgVolD, format.volume), cTxt)
+        r += 1
+    if rRvol
+        f_row(r, "RVOL", na(rvol) ? "–" : f_num(rvol * 100, 0) + "%", rvol >= 1.5 ? cPos : cTxt)
+        r += 1
+    if rRs
+        f_row(r, "RS vs " + rsName, na(rsVal) ? "–" : (rsVal >= 0 ? "+" : "") + f_num(rsVal, 0) + "%" + (rsNear ? " · Linie am Hoch ✓" : ""), na(rsVal) ? cTxt : rsVal >= 0 ? cPos : cNeg)
+        r += 1
+    if rDist
+        [d1, c1] = f_dist(e1)
+        f_row(r, "Abst. EMA " + str.tostring(lenE1), d1, c1)
+        r += 1
+        [d2, c2] = f_dist(e2)
+        f_row(r, "Abst. EMA " + str.tostring(lenE2), d2, c2)
+        r += 1
+        [d3, c3] = f_dist(e3)
+        f_row(r, "Abst. EMA " + str.tostring(lenE3), d3, c3)
+        r += 1
+        [d4, c4] = f_dist(s4)
+        f_row(r, "Abst. SMA " + str.tostring(lenS4), d4, c4)
+        r += 1
+    if rSec
+        f_row(r, syminfo.sector == "" ? "–" : syminfo.sector, "", cTxt)
+        r += 1
+    if rInd
+        f_row(r, syminfo.industry == "" ? "–" : syminfo.industry, "", cTxt)
+        r += 1
+    if rEarn
+        eDays = na(earnings.future_time) ? na : math.ceil((earnings.future_time - timenow) / 86400000.0)
+        f_row(r, "Earnings", na(eDays) ? "–" : "in " + str.tostring(eDays) + " Tagen", not na(eDays) and eDays <= earnWarn ? cNeg : cTxt)

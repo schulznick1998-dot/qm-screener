@@ -1,0 +1,101 @@
+//@version=6
+// Qullamaggie Breakout-Setup – für den TradingView Pine Screener (Zeitrahmen: 1D)
+// Gleiche Regeln wie im Python-Backtest. Die ersten 10 Plots erscheinen im Pine Screener als Filter/Spalten.
+indicator("QM Breakout Setup", overlay = true)
+
+// ---------- Einstellungen ----------
+baseLookback = input.int(60,   "Base: Suchfenster (Tage)")
+tolPct       = input.float(1.5, "Base: Hoch-Toleranz %")
+baseMin      = input.int(10,   "Base: min. Tage")
+baseMax      = input.int(40,   "Base: max. Tage")
+priorMin     = input.float(30, "Vorlauf: min. %")
+priorLB      = input.int(65,   "Vorlauf: Lookback vor der Base")
+maxDepth     = input.float(30, "Base: max. Tiefe %")
+needHL       = input.bool(true, "Höhere Tiefs verlangen")
+tightDays    = input.int(5,    "Enge: Anzahl Tage")
+tightMult    = input.float(2.0, "Enge: Range ≤ x ADR")
+volDry       = input.float(0.85, "Volumen: Ø Enge-Tage / Ø 50T ≤")
+extMult      = input.float(2.0, "Abstand Close–20er ≤ x ADR")
+minAdr       = input.float(4.0, "Min. ADR %")
+minDV        = input.float(10,  "Min. Dollar-Volumen (Mio., Ø 20T)")
+minPrice     = input.float(5,   "Min. Kurs")
+mktSymbol    = input.symbol("NASDAQ:IXIC", "Marktfilter-Index")
+
+// ---------- Basiswerte ----------
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+sma50 = ta.sma(close, 50)
+adr   = 100 * (ta.sma(high / low, 20) - 1)
+dvol  = ta.sma(close * volume, 20) / 1e6
+vol50 = ta.sma(volume, 50)
+mom1  = (close / ta.lowest(low, 22)  - 1) * 100
+mom3  = (close / ta.lowest(low, 65)  - 1) * 100
+mom6  = (close / ta.lowest(low, 126) - 1) * 100
+
+lowPre = ta.lowest(low, priorLB + 1)
+tight  = (ta.highest(high, tightDays) - ta.lowest(low, tightDays)) / close * 100 <= tightMult * adr
+dry    = ta.sma(volume, tightDays) <= volDry * vol50
+ext    = (close / ema20 - 1) * 100 <= extMult * adr
+
+// ---------- Base finden: ältester Tag im Fenster nahe am Hoch ----------
+top = ta.highest(high, baseLookback)
+int bs = na
+if bar_index > baseLookback + priorLB + 2
+    for i = baseLookback - 1 to 0
+        if high[i] >= top * (1 - tolPct / 100)
+            bs := i
+            break
+
+bool setup = false
+float priorMove = na
+if not na(bs)
+    // Vorlauf: Base-Hoch vs. Tief der priorLB Tage vor Base-Beginn
+    preLow = lowPre[bs]
+    priorMove := (top / preLow - 1) * 100
+    // Tiefe und höhere Tiefs
+    float baseLow = low
+    float lowFirst = low[bs]
+    float lowSecond = low
+    m = bs - int(math.floor((bs + 1) / 2))
+    for k = 0 to bs
+        baseLow := math.min(baseLow, low[k])
+        if k <= m
+            lowSecond := math.min(lowSecond, low[k])
+        else
+            lowFirst := math.min(lowFirst, low[k])
+    depth = (top - baseLow) / top * 100
+    hlOk  = not needHL or lowSecond >= lowFirst
+    setup := bs >= baseMin and bs <= baseMax and priorMove >= priorMin and depth <= maxDepth and hlOk
+         and tight and dry and ext and close > sma50 and ema10 > ema20
+         and adr >= minAdr and dvol >= minDV and close >= minPrice
+
+// Pivot nur, wenn es eine echte Base gibt (sonst steht er bei einem frischen Hoch "im Nirgendwo")
+hasBase   = not na(bs) and bs >= math.max(baseMin, 3)
+hi5       = ta.highest(high, tightDays)
+pivot     = hasBase ? hi5 : na
+toPivot   = hasBase ? (pivot / close - 1) * 100 : na
+
+// ---------- Marktfilter: 10er über 20er, beide steigend ----------
+[mE10, mE20, mE10p, mE20p] = request.security(mktSymbol, "1D", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 10)[1], ta.ema(close, 20)[1]])
+mktGreen = mE10 > mE20 and mE10 > mE10p and mE20 > mE20p
+
+// ---------- Plots (die ersten 10 = Screener-Spalten) ----------
+plot(setup ? 1 : 0,     "Setup (1/0)",          display = display.data_window)
+plot(pivot,             "Pivot",                display = display.data_window)
+plot(toPivot,           "Abstand Pivot %",      display = display.data_window)
+plot(adr,               "ADR %",                display = display.data_window)
+plot(dvol,              "Dollar-Vol Mio",       display = display.data_window)
+plot(mom1,              "Mom 1M %",             display = display.data_window)
+plot(mom3,              "Mom 3M %",             display = display.data_window)
+plot(mom6,              "Mom 6M %",             display = display.data_window)
+plot(nz(bs, -1),        "Base Tage",            display = display.data_window)
+plot(mktGreen ? 1 : 0,  "Markt grün (1/0)",     display = display.data_window)
+
+// Chart-Darstellung
+plot(ema10, "EMA 10", color = color.new(color.black, 0))
+plot(ema20, "EMA 20", color = color.new(color.blue, 0))
+plot(sma50, "SMA 50", color = color.new(color.purple, 0))
+plotshape(setup, "Setup-Markierung", shape.triangleup, location.belowbar, color.orange, size = size.small)
+plot(barstate.islast ? pivot : na, "Pivot-Linie", color = color.orange, style = plot.style_circles, linewidth = 2, show_last = 1, trackprice = true)
+
+alertcondition(setup, "QM Setup", "QM Breakout-Setup: {{ticker}} Pivot {{plot_1}}")

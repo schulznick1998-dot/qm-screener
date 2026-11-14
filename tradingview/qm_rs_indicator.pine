@@ -1,0 +1,82 @@
+//@version=6
+// =============================================================================
+// QM Relative Stärke – gleiche Formeln wie der QM Screener
+//
+// 1. RS-LINIE  = Schlusskurs ÷ Schlusskurs des Vergleichsindex (Standard SPY,
+//    wie IBD/MarketSmith mit dem S&P 500). Die absolute Höhe ist egal, es
+//    zählt nur die Richtung. Punkt = RS-Linie auf 52-Wochen-Hoch.
+//    Grüner Punkt = RS-Linie auf Jahreshoch, der Kurs aber NOCH NICHT
+//    ("Blue Dot" bei MarketSmith, Qullamaggies Lieblingssignal in der Base).
+//
+// 2. RS-SCORE  = gewichtete 12-Monats-Performance (IBD-Näherung):
+//       0,4·C/C[63] + 0,2·C/C[126] + 0,2·C/C[189] + 0,2·C/C[252]
+//    Das letzte Quartal zählt doppelt. Bei jungen Aktien nur die
+//    vorhandenen Quartale (mind. 63 Tage), Gewichte neu verteilt.
+//
+// Das RS-RATING 1–99 ist der Rang dieses Scores gegen ALLE Aktien. Pine kann
+// nicht über alle Aktien rechnen, darum zeigt der Indikator den Score der
+// Aktie und des Index. Das Rating selbst steht im QM Screener.
+// =============================================================================
+indicator("QM Relative Stärke", shorttitle = "QM RS", overlay = false, precision = 4)
+
+benchSym  = input.symbol("AMEX:SPY", "Vergleichsindex")
+lookback  = input.int(252, "52-Wochen-Fenster (Tage)", minval = 20)
+showTable = input.bool(true, "Tabelle anzeigen")
+
+bench = request.security(benchSym, timeframe.period, close, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_off)
+
+// ---------- RS-Linie ----------
+rs        = close / bench
+nBars     = bar_index + 1
+win       = math.min(lookback, nBars)
+rsHigh    = ta.highest(rs, win)
+priceHigh = ta.highest(high, win)
+enough    = nBars >= 126                                   // wie im Screener: mind. ein halbes Jahr
+rsNH      = enough and rs >= rsHigh
+rsNHfirst = rsNH and high < priceHigh                      // RS-Hoch vor dem Kurs
+
+// ---------- RS-Score ----------
+score(src) =>
+    float num = 0.0
+    float den = 0.0
+    if bar_index >= 63
+        num += 0.4 * src / src[63]
+        den += 0.4
+    if bar_index >= 126
+        num += 0.2 * src / src[126]
+        den += 0.2
+    if bar_index >= 189
+        num += 0.2 * src / src[189]
+        den += 0.2
+    if bar_index >= 252
+        num += 0.2 * src / src[252]
+        den += 0.2
+    den > 0 ? num / den : na
+
+sStock = score(close)
+sBench = score(bench)
+
+// ---------- Darstellung ----------
+plot(rs, "RS-Linie", color = color.new(#0e8a8a, 0), linewidth = 2)
+plot(rsHigh, "RS 52W-Hoch", color = color.new(#0e8a8a, 70), style = plot.style_stepline)
+plotshape(rsNH and not rsNHfirst ? rs : na, "RS-Linie 52W-Hoch", shape.circle, location.absolute, color.new(#0e8a8a, 0), size = size.tiny)
+plotshape(rsNHfirst ? rs : na, "RS-Hoch vor Kurs", shape.circle, location.absolute, color.new(#1d8656, 0), size = size.small)
+plot(sStock, "RS-Score Aktie", display = display.data_window)
+plot(sBench, "RS-Score Index", display = display.data_window)
+plot(rsNH ? 1 : 0, "RS 52W-Hoch (1/0)", display = display.data_window)
+plot(rsNHfirst ? 1 : 0, "RS-Hoch vor Kurs (1/0)", display = display.data_window)
+
+var table t = table.new(position.top_right, 2, 4, bgcolor = color.new(color.gray, 85), border_width = 1)
+if showTable and barstate.islast
+    table.cell(t, 0, 0, "RS-Score Aktie", text_size = size.small)
+    table.cell(t, 1, 0, str.tostring(sStock, "#.###"), text_size = size.small)
+    table.cell(t, 0, 1, "RS-Score Index", text_size = size.small)
+    table.cell(t, 1, 1, str.tostring(sBench, "#.###"), text_size = size.small)
+    table.cell(t, 0, 2, "Aktie vs. Index", text_size = size.small)
+    table.cell(t, 1, 2, na(sStock) or na(sBench) ? "–" : str.tostring((sStock / sBench - 1) * 100, "+#.#;-#.#") + " %", text_size = size.small,
+         text_color = sStock > sBench ? color.green : color.red)
+    table.cell(t, 0, 3, "RS-Linie", text_size = size.small)
+    table.cell(t, 1, 3, rsNHfirst ? "Hoch vor Kurs" : rsNH ? "52W-Hoch" : str.tostring((rs / rsHigh - 1) * 100, "#.#") + " % unter Hoch", text_size = size.small)
+
+alertcondition(rsNHfirst, "RS-Hoch vor Kurs", "{{ticker}}: RS-Linie auf 52W-Hoch vor dem Kurs")
+alertcondition(rsNH, "RS-Linie 52W-Hoch", "{{ticker}}: RS-Linie auf 52W-Hoch")
