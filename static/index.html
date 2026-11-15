@@ -84,7 +84,7 @@ tbody tr{cursor:pointer;transition:background .08s}
 tbody tr:hover{background:var(--raised)}
 tbody tr.sel{background:var(--sel);box-shadow:inset 3px 0 0 var(--accent)}
 tbody tr.seen:not(.sel) td{opacity:.45}
-.resume{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--line);font-size:.8rem}
+.resume{display:flex;border-top:1px solid var(--line);gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--line);font-size:.8rem}
 .resume b{color:var(--accent)}.resume button{padding:3px 10px;font-size:.78rem}
 #updBody ul{margin:4px 0 10px 18px;padding:0}#updBody li{margin:3px 0}
 .sym{display:inline-block;min-width:54px;text-align:center;font-weight:600;font-size:.78rem;letter-spacing:.02em;padding:3px 8px;border-radius:5px;background:var(--sunk);color:var(--ink)}
@@ -320,9 +320,10 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 </div>
 <div class="fbar" id="fbar"></div>
 <div class="tabs" id="tabs"></div>
+<div class="resume" id="resume" style="display:none"></div>
 <div class="notes" id="notes"></div>
 <main>
-  <div class="tablewrap"><div class="resume" id="resume" style="display:none"></div><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div></div>
+  <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div></div>
   <section class="panel" id="panel"><div class="empty">Klicke auf eine Aktie, um Chart, Base, Pivot und Fundamentals zu sehen.</div></section>
 </main>
 <dialog id="setup">
@@ -494,12 +495,13 @@ function renderResume(p,rows){const el=$('#resume');if(!el)return;
   $('#resReset').onclick=()=>{if(!confirm('Fortschritt für diesen Scan löschen?'))return;progSave({last:null,seen:[]});render();};
 }
 function render(){
+  if(['sek','th','fok','jr'].includes(VIEW)&&$('#resume'))$('#resume').style.display='none';
   document.querySelector('main').classList.toggle('full',VIEW==='jr'&&JSUB!=='trades');
   if(VIEW==='sek'){renderGroups();return;}
   if(VIEW==='th'){renderThemes();return;}
   if(VIEW==='fok'){renderFokus();return;}
   if(VIEW==='jr'){renderJournal();return;}
-  if(!$('#tbl')){$('.tablewrap').innerHTML='<div class="resume" id="resume" style="display:none"></div><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div>';}
+  if(!$('#tbl')){$('.tablewrap').innerHTML='<table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div>';}
   head();
   if(!RESULT||!RESULT.rows){$('#tbl tbody').innerHTML='';return;}
   const rsMin=parseFloat($('#fRs').value);
