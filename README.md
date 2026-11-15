@@ -28,7 +28,7 @@ Er läuft **komplett auf deinem eigenen Rechner** (Mac oder Windows) und öffnet
 2. Die ZIP-Datei entpacken (Doppelklick). Den Ordner an einen festen Ort legen, z. B. in **Dokumente**, und ihn am besten in `QM-Screener` umbenennen.
 
 ### Mac
-1. Ist **Python** installiert? Falls nicht: [python.org/downloads/macos](https://www.python.org/downloads/macos/) → Installer für **Python 3.13** laden und installieren (einfach durchklicken).
+1. Ist **Python** installiert? Falls nicht: [python.org/downloads/latest/python3.13](https://www.python.org/downloads/latest/python3.13) → Installer für **Python 3.13** (nicht 3.15 – dafür fehlen noch Pakete) laden und installieren (einfach durchklicken).
 2. Im Ordner **`start_mac.command`** doppelklicken.
    - Beim **allerersten Mal** meldet der Mac „kann nicht geöffnet werden, da der Entwickler nicht verifiziert ist“. Dann: **Rechtsklick (oder Ctrl + Klick) auf `start_mac.command` → Öffnen → Öffnen**. Das ist nur einmal nötig.
    - Falls stattdessen „keine Berechtigung“ kommt: Terminal öffnen, `chmod +x ` eintippen (mit Leerzeichen), die Datei ins Terminal ziehen, Enter. Danach wieder doppelklicken.
@@ -36,7 +36,7 @@ Er läuft **komplett auf deinem eigenen Rechner** (Mac oder Windows) und öffnet
 4. **Das schwarze Fenster offen lassen**, solange du den Screener nutzt. Schließen = Screener aus.
 
 ### Windows
-1. **Python** installieren: [python.org/downloads/windows](https://www.python.org/downloads/windows/) → Installer für **Python 3.13**. **Ganz wichtig:** im ersten Fenster des Installers unten den Haken bei **„Add python.exe to PATH“** setzen, dann „Install Now“.
+1. **Python** installieren: [python.org/downloads/latest/python3.13](https://www.python.org/downloads/latest/python3.13) → unten „Windows installer (64-bit)“ → Installer für **Python 3.13** (nicht 3.15 – dafür fehlen noch Pakete). **Ganz wichtig:** im ersten Fenster des Installers unten den Haken bei **„Add python.exe to PATH“** setzen, dann „Install Now“.
 2. Im Ordner **`start_windows.bat`** doppelklicken.
    - Kommt „Der Computer wurde durch Windows geschützt“: auf **„Weitere Informationen“ → „Trotzdem ausführen“**.
 3. Beim ersten Start werden die Pakete installiert (**2–3 Minuten**), dann öffnet sich der Screener im Browser.
@@ -180,7 +180,7 @@ Diese Dateien sind in `.gitignore` eingetragen und können nicht versehentlich z
 | Erster Download bricht ab | Nochmal „Daten laden + scannen“, er macht da weiter. |
 | Journal: „Fehler 1018“ | IBKR mag zu viele Anfragen hintereinander nicht. 1 Minute warten, nochmal abholen. |
 | Journal: keine Trades | Trades sind erst am nächsten Morgen in der Kontoumsatz-Abfrage, oder das Datum bei „ab“ liegt nach deinen Trades. |
-| Mac: „Python 3.10 oder neuer fehlt“ | Python 3.13 von python.org installieren (siehe oben), dann neu starten. |
+| „Passendes Python fehlt“ / Fehler bei pyarrow | Python 3.13 von python.org installieren (siehe oben), dann neu starten. |
 | Windows: „python wurde nicht gefunden“ | Python neu installieren und **„Add python.exe to PATH“** anhaken. |
 
 Ohne Schlüssel ausprobieren: Terminal im Ordner öffnen → `.venv/bin/python app.py --demo` (Mac) bzw. `.venv\Scripts\python app.py --demo` (Windows). Dann gibt es Beispieldaten.

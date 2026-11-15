@@ -2,21 +2,28 @@
 # QM Screener für macOS: Doppelklick startet. Beim ersten Mal werden die Pakete installiert (1–2 Minuten).
 cd "$(dirname "$0")"
 
-# Python finden (python.org-Installation bevorzugt, dann Homebrew, dann System)
+# Python finden: 3.10 bis 3.14 (neuere Versionen haben noch nicht alle Pakete, z. B. pyarrow)
+OKV='import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,14) else 1)'
 PY=""
-for c in /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3 /usr/local/bin/python3 python3; do
-  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+for c in /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 /opt/homebrew/bin/python3.13 \
+         /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 \
+         /opt/homebrew/bin/python3 /usr/local/bin/python3 python3; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c "$OKV" 2>/dev/null; then
     PY="$c"; break
   fi
 done
 if [ -z "$PY" ]; then
   echo ""
-  echo "Python 3.10 oder neuer fehlt."
-  echo "Bitte von https://www.python.org/downloads/macos/ den Installer für Python 3.13 laden,"
+  echo "Passendes Python fehlt. Benötigt wird Python 3.13 (3.15 und neuer ist noch zu neu)."
+  echo "Bitte von https://www.python.org/downloads/latest/python3.13 den macOS-Installer laden,"
   echo "installieren und diese Datei danach erneut doppelklicken."
-  open "https://www.python.org/downloads/macos/"
+  open "https://www.python.org/downloads/latest/python3.13"
   read -n 1 -s -r -p "Taste drücken zum Schließen …"
   exit 1
+fi
+# Alte Umgebung mit unpassender Python-Version entfernen
+if [ -x ".venv/bin/python" ] && ! .venv/bin/python -c "$OKV" 2>/dev/null; then
+  echo "Entferne alte Python-Umgebung …"; rm -rf .venv
 fi
 
 # Eigene Umgebung im Programmordner (stört nichts anderes auf dem Mac)

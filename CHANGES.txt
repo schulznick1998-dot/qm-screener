@@ -1,5 +1,8 @@
 # Was ist neu? (neueste Version oben)
 
+## 2026.11.15.1
+- Start-Dateien nehmen jetzt gezielt Python 3.10–3.14. Mit Python 3.15 schlug die Installation fehl (pyarrow gibt es dafür noch nicht).
+
 ## 2026.11.15
 - Beim Öffnen erscheint ein Hinweis, sobald es eine neue Version gibt – mit „Jetzt updaten“ oder „Später“.
 - Scan-Fortschritt: Der Screener merkt sich pro Scan, welche Aktie du zuletzt angesehen hast. Oben in der Liste steht „Weiter bei …“.

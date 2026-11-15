@@ -4,21 +4,32 @@ title QM Screener
 REM QM Screener fuer Windows: Doppelklick startet. Beim ersten Mal werden die Pakete installiert (2-3 Minuten).
 cd /d "%~dp0"
 
-REM Python suchen (3.10 oder neuer)
+REM Python suchen: 3.10 bis 3.14 (neuere Versionen haben noch nicht alle Pakete, z. B. pyarrow)
 set "PY="
-py -3 -c "import sys; sys.exit(0 if sys.version_info>=(3,10) else 1)" >nul 2>nul && set "PY=py -3"
+for %%v in (3.13 3.12 3.11 3.14 3.10) do (
+  if not defined PY ( py -%%v -c "import sys" >nul 2>nul && set "PY=py -%%v" )
+)
 if not defined PY (
-  python -c "import sys; sys.exit(0 if sys.version_info>=(3,10) else 1)" >nul 2>nul && set "PY=python"
+  python -c "import sys; sys.exit(0 if (3,10)<=sys.version_info[:2]<=(3,14) else 1)" >nul 2>nul && set "PY=python"
 )
 if not defined PY (
   echo.
-  echo Python 3.10 oder neuer fehlt.
-  echo Bitte von https://www.python.org/downloads/windows/ den Installer fuer Python 3.13 laden.
+  echo Passendes Python fehlt. Benoetigt wird Python 3.13 ^(3.15 und neuer ist noch zu neu^).
+  echo Bitte den Installer fuer Python 3.13 laden: https://www.python.org/downloads/latest/python3.13
+  echo Unten auf der Seite: "Windows installer (64-bit)".
   echo WICHTIG: Im ersten Fenster des Installers unten den Haken bei "Add python.exe to PATH" setzen!
   echo Danach diese Datei erneut doppelklicken.
-  start "" "https://www.python.org/downloads/windows/"
+  start "" "https://www.python.org/downloads/latest/python3.13"
   pause
   exit /b 1
+)
+
+REM Alte Umgebung mit unpassender Python-Version entfernen
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" -c "import sys; sys.exit(0 if (3,10)<=sys.version_info[:2]<=(3,14) else 1)" >nul 2>nul || (
+    echo Entferne alte Python-Umgebung ...
+    rmdir /s /q ".venv"
+  )
 )
 
 REM Eigene Umgebung im Programmordner (stoert nichts anderes auf dem PC)
