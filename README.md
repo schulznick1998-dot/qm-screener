@@ -77,6 +77,7 @@ Siehe [Abschnitt 4](#4-trading-journal-mit-interactive-brokers-optional). Wer ni
 1. Oben auf **„Daten laden + scannen“** klicken.
 2. Beim **ersten Mal** lädt der Screener die Tageskerzen aller US-Aktien (ca. 1 Jahr). Das dauert **3–6 Minuten**. Ab dann werden nur noch die neuen Tage nachgeladen, das geht in Sekunden.
 3. Danach siehst du die Treffer. Ein Klick auf eine Aktie zeigt rechts den Chart mit Base, Pivot und gleitenden Durchschnitten. **↑/↓** blättert durch die Liste.
+4. Der Screener merkt sich pro Scan, welche Aktie du **zuletzt angesehen** hast: Oben über der Liste steht „Zuletzt angesehen: … → **Weiter bei …**“, schon angesehene Aktien werden blass. Mit neuen Kursdaten fängt die Liste wieder frisch an.
 
 **Die wichtigsten Knöpfe:**
 
@@ -143,8 +144,8 @@ Im Ordner **`tradingview/`** liegen Indikatoren zum Kopieren:
 
 ## 6. Updates
 
-Gibt es eine neue Version, erscheint oben im Screener der Knopf **„⬇ Update“**.
-1. Draufklicken und bestätigen. Nur der Programmcode wird ersetzt. **Schlüssel, Einstellungen, Fokusliste, eigene Scans, Journal und Kursdaten bleiben erhalten.** Der alte Code wird vorher in `_update_backup/` gesichert.
+Gibt es eine neue Version, erscheint beim Öffnen des Screeners ein Fenster **„Neue Version verfügbar“** mit allen Neuerungen (und oben der Knopf **„⬇ Update“**).
+1. Auf **„Jetzt updaten“** klicken. Bei „Später“ kommt der Hinweis beim nächsten Öffnen wieder. Nur der Programmcode wird ersetzt. **Schlüssel, Einstellungen, Fokusliste, eigene Scans, Journal und Kursdaten bleiben erhalten.** Der alte Code wird vorher in `_update_backup/` gesichert.
 2. Danach das schwarze Fenster schließen und den Screener neu starten (`start_mac.command` bzw. `start_windows.bat`).
 
 Alternativ: neue ZIP von GitHub laden und die Programmdateien in deinen Ordner kopieren (deine Dateien aus Abschnitt 7 dabei **nicht** überschreiben).
