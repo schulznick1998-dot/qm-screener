@@ -1,0 +1,9 @@
+# Was ist neu? (neueste Version oben)
+
+## 2026.11.15
+- Beim Öffnen erscheint ein Hinweis, sobald es eine neue Version gibt – mit „Jetzt updaten“ oder „Später“.
+- Scan-Fortschritt: Der Screener merkt sich pro Scan, welche Aktie du zuletzt angesehen hast. Oben in der Liste steht „Weiter bei …“.
+- Bereits angesehene Aktien werden blass angezeigt. Das gilt nur für den aktuellen Datenstand – mit neuen Kursdaten startet die Liste wieder frisch.
+
+## 2026.11.14
+- Erste Version auf GitHub: Screener, Journal (IBKR), Einrichtung und Update-Funktion.

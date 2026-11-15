@@ -16,11 +16,12 @@ import zipfile
 REPO = "schulznick1998-dot/qm-screener"
 BRANCH = "main"
 RAW = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/VERSION"
+RAW_CHANGES = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/CHANGES.txt"
 ZIP = f"https://codeload.github.com/{REPO}/zip/refs/heads/{BRANCH}"
 PAGE = f"https://github.com/{REPO}"
 
 # Nur diese Dateien/Ordner gehören zum Programm und werden beim Update ersetzt
-CODE_FILES = ("app.py", "VERSION", "requirements.txt", "README.md", "start_mac.command", "start_windows.bat",
+CODE_FILES = ("app.py", "VERSION", "CHANGES.txt", "requirements.txt", "README.md", "start_mac.command", "start_windows.bat",
               ".gitignore", ".env.example", "settings.example.json")
 CODE_DIRS = ("screener", "static", "tradingview")
 
@@ -57,7 +58,29 @@ def check(folder: str) -> dict:
         new = _get(RAW + f"?t={int(time.time())}", timeout=10).decode().strip()
     except Exception as e:
         return {"current": cur, "latest": None, "available": False, "error": f"GitHub nicht erreichbar ({str(e)[:80]})"}
-    return {"current": cur, "latest": new, "available": _key(new) > _key(cur), "page": PAGE}
+    avail = _key(new) > _key(cur)
+    changes = []
+    if avail:
+        try:
+            changes = parse_changes(_get(RAW_CHANGES + f"?t={int(time.time())}", timeout=10).decode("utf-8"), cur)
+        except Exception:
+            pass
+    return {"current": cur, "latest": new, "available": avail, "page": PAGE, "changes": changes}
+
+
+def parse_changes(text: str, since: str) -> list:
+    """CHANGES.txt: Blöcke '## VERSION' mit Zeilen '- Text'. Liefert alle Blöcke neuer als `since`."""
+    out, cur = [], None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("## "):
+            v = line[3:].strip()
+            cur = {"version": v, "items": []} if _key(v) > _key(since) else None
+            if cur:
+                out.append(cur)
+        elif line.startswith("- ") and cur is not None:
+            cur["items"].append(line[2:].strip())
+    return out[:10]
 
 
 def apply(folder: str) -> dict:

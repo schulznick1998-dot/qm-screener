@@ -83,6 +83,10 @@ td{font-variant-numeric:tabular-nums}
 tbody tr{cursor:pointer;transition:background .08s}
 tbody tr:hover{background:var(--raised)}
 tbody tr.sel{background:var(--sel);box-shadow:inset 3px 0 0 var(--accent)}
+tbody tr.seen:not(.sel) td{opacity:.45}
+.resume{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--line);font-size:.8rem}
+.resume b{color:var(--accent)}.resume button{padding:3px 10px;font-size:.78rem}
+#updBody ul{margin:4px 0 10px 18px;padding:0}#updBody li{margin:3px 0}
 .sym{display:inline-block;min-width:54px;text-align:center;font-weight:600;font-size:.78rem;letter-spacing:.02em;padding:3px 8px;border-radius:5px;background:var(--sunk);color:var(--ink)}
 tr.sel .sym{background:var(--accent);color:#14100a}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:500;font-size:.72rem}
@@ -318,7 +322,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <div class="tabs" id="tabs"></div>
 <div class="notes" id="notes"></div>
 <main>
-  <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div></div>
+  <div class="tablewrap"><div class="resume" id="resume" style="display:none"></div><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div></div>
   <section class="panel" id="panel"><div class="empty">Klicke auf eine Aktie, um Chart, Base, Pivot und Fundamentals zu sehen.</div></section>
 </main>
 <dialog id="setup">
@@ -348,6 +352,14 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     </div>
     <div class="dlg-err" id="suErr"></div>
     <div class="dlg-foot"><span class="mu" id="suInfo" style="font-size:.75rem"></span><div class="grow"></div><button type="button" id="suClose">Später</button><button type="button" id="suSave" class="primary">Speichern</button></div>
+  </div>
+</dialog>
+<dialog id="upd">
+  <div style="display:flex;flex-direction:column;max-height:90vh">
+    <div class="dlg-head"><h2>🎉 Neue Version verfügbar</h2><span class="mu" id="updSub"></span></div>
+    <div id="updBody" style="padding:12px 20px;overflow:auto"></div>
+    <div style="padding:0 20px 10px;font-size:.78rem" class="mu">Deine Schlüssel, Einstellungen, Fokusliste, eigenen Scans, Journal und Kursdaten bleiben erhalten. Der alte Programmcode wird vorher in <code>_update_backup</code> gesichert.</div>
+    <div class="dlg-foot"><span id="updErr" class="neg"></span><div class="grow"></div><button type="button" id="updLater">Später</button><button type="button" id="updNow" class="primary">Jetzt updaten</button></div>
   </div>
 </dialog>
 <dialog id="info">
@@ -463,13 +475,31 @@ function head(){
   $('#tbl thead').innerHTML='<tr>'+visCols().map(c=>`<th class="${c.cls||''} ${SORT.key===c.k?'sorted':''}" data-k="${c.k}" data-arrow="${SORT.dir>0?'↑':'↓'}">${c.t}</th>`).join('')+'</tr>';
   document.querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;SORT={key:k,dir:SORT.key===k?-SORT.dir:-1};render();});
 }
+// ── Fortschritt pro Scan: zuletzt angesehene Aktie + bereits angesehene (gilt nur für den aktuellen Datenstand)
+function progKey(){return (baseKey()||'eigen')+'|'+(RESULT?.last_date||'');}
+function progAll(){try{return JSON.parse(localStorage.getItem('qm_prog')||'{}');}catch(e){return {};}}
+function progGet(){const p=progAll()[progKey()];return p&&Array.isArray(p.seen)?p:{last:null,seen:[]};}
+function progSave(p){const d=RESULT?.last_date||'',all=progAll(),out={};
+  for(const[k,v]of Object.entries(all))if(k.endsWith('|'+d))out[k]=v;   // ältere Datenstände fliegen raus
+  out[progKey()]=p;try{localStorage.setItem('qm_prog',JSON.stringify(out));}catch(e){}}
+function progMark(sym){if(!RESULT?.rows)return;const p=progGet();p.last=sym;if(!p.seen.includes(sym))p.seen.push(sym);progSave(p);}
+function renderResume(p,rows){const el=$('#resume');if(!el)return;
+  if(!p.last){el.style.display='none';return;}
+  const i=rows.findIndex(r=>r.symbol===p.last), n=p.seen.filter(s=>rows.some(r=>r.symbol===s)).length;
+  el.style.display='';
+  el.innerHTML=`<span>Zuletzt angesehen: <b>${p.last}</b>${i>=0?` (Nr. ${i+1} von ${rows.length})`:' (bei diesen Filtern nicht in der Liste)'} · ${n} erledigt</span>`
+    +(i>=0&&p.last!==SEL?`<button type="button" class="primary" id="resGo">Weiter bei ${p.last} →</button>`:'')
+    +`<button type="button" id="resReset" title="Markierungen für diesen Scan löschen">Zurücksetzen</button>`;
+  if($('#resGo'))$('#resGo').onclick=()=>open(p.last);
+  $('#resReset').onclick=()=>{if(!confirm('Fortschritt für diesen Scan löschen?'))return;progSave({last:null,seen:[]});render();};
+}
 function render(){
   document.querySelector('main').classList.toggle('full',VIEW==='jr'&&JSUB!=='trades');
   if(VIEW==='sek'){renderGroups();return;}
   if(VIEW==='th'){renderThemes();return;}
   if(VIEW==='fok'){renderFokus();return;}
   if(VIEW==='jr'){renderJournal();return;}
-  if(!$('#tbl')){$('.tablewrap').innerHTML='<table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div>';}
+  if(!$('#tbl')){$('.tablewrap').innerHTML='<div class="resume" id="resume" style="display:none"></div><table id="tbl"><thead></thead><tbody></tbody></table><div class="empty" id="empty"></div>';}
   head();
   if(!RESULT||!RESULT.rows){$('#tbl tbody').innerHTML='';return;}
   const rsMin=parseFloat($('#fRs').value);
@@ -483,8 +513,10 @@ function render(){
   FILTERED=rows;
   const LIMIT=1000, shown=rows.slice(0,LIMIT);
   SHOWN=shown.map(r=>r.symbol);
-  $('#tbl tbody').innerHTML=shown.map(r=>`<tr data-s="${r.symbol}" class="${r.symbol===SEL?'sel':''}">`+visCols().map(c=>`<td class="${c.cls||''}">${c.f(r)}</td>`).join('')+'</tr>').join('');
+  const pr=progGet();
+  $('#tbl tbody').innerHTML=shown.map(r=>`<tr data-s="${r.symbol}" class="${r.symbol===SEL?'sel':''}${pr.seen.includes(r.symbol)?' seen':''}">`+visCols().map(c=>`<td class="${c.cls||''}">${c.f(r)}</td>`).join('')+'</tr>').join('');
   document.querySelectorAll('tbody tr').forEach(tr=>tr.onclick=e=>{if(e.target.dataset.star){e.stopPropagation();toggleFok(e.target.dataset.star);return;}open(tr.dataset.s);});
+  renderResume(pr,rows);
   $('#counts').textContent=`${rows.length>LIMIT?LIMIT+' von '+rows.length:rows.length} angezeigt · ${RESULT.setups} Setups · ${RESULT.after_filters} nach Filter · ${RESULT.universe} gescannt · ↑/↓ blättern`;
   $('#empty').textContent=rows.length?'':(onlySetup?'Keine Setups mit diesen Filtern. „nur Setups" abwählen, um alle Kandidaten mit Ausschlussgründen zu sehen.':'Keine Treffer.');
 }
@@ -492,6 +524,7 @@ function render(){
 async function open(sym){
   const myId=++OPEN_ID;
   SEL=sym;
+  if(!['sek','th','fok','jr'].includes(VIEW))progMark(sym);
   if(VIEW==='sek'||VIEW==='th'||VIEW==='fok'||VIEW==='jr')document.querySelectorAll('.gtbl tr[data-s]').forEach(t=>t.classList.toggle('sel',t.dataset.s===sym));else render();
   const tr=document.querySelector(`tbody tr[data-s="${sym}"]`)||document.querySelector(`.gtbl tr[data-s="${sym}"]`);
   if(tr)tr.scrollIntoView({block:'nearest'});
@@ -1353,20 +1386,28 @@ $('#suSave').onclick=async()=>{
     if(!RESULT||!RESULT.rows||!RESULT.rows.length)$('#status').textContent='Eingerichtet ✓ Jetzt „Daten laden + scannen“ klicken (erster Download ca. 3–6 Minuten).';
   }catch(e){b.disabled=false;$('#suErr').textContent='Speichern fehlgeschlagen.';}
 };
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function checkUpdate(){
   try{const j=await (await fetch('/api/update')).json();
-    if(j.available){const b=$('#btnUpd');b.style.display='';b.textContent=`⬇ Update ${j.latest}`;b.title=`Neue Version ${j.latest} (du hast ${j.current}). Deine Daten, Listen und Schlüssel bleiben erhalten.`;}
+    if(!j.available)return;
+    const b=$('#btnUpd');b.style.display='';b.textContent=`⬇ Update ${j.latest}`;b.title=`Neue Version ${j.latest} (du hast ${j.current}).`;
+    $('#updSub').textContent=`Version ${j.latest} · du hast ${j.current}`;
+    $('#updBody').innerHTML=(j.changes||[]).length?j.changes.map(c=>`<b>${esc(c.version)}</b><ul>${c.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')
+      :'<p>Verbesserungen und Fehlerbehebungen.</p>';
+    setTimeout(()=>{if(!$('#setup').open&&!$('#upd').open)$('#upd').showModal();},1500);  // nicht über die Einrichtung legen
   }catch(e){}
 }
-$('#btnUpd').onclick=async()=>{
-  if(!confirm('Neue Version von GitHub laden?\n\nDeine Schlüssel, Einstellungen, Fokusliste, eigenen Scans, Journal und Kursdaten bleiben erhalten. Der alte Programmcode wird vorher in _update_backup gesichert.'))return;
-  const b=$('#btnUpd');b.disabled=true;b.textContent='lädt …';
+async function doUpdate(){
+  const b=$('#updNow');b.disabled=true;b.textContent='lädt …';$('#updErr').textContent='';
   try{const r=await (await fetch('/api/update',{method:'POST'})).json();
-    if(!r.ok){alert(r.error);b.disabled=false;b.textContent='⬇ Update';return;}
-    b.textContent='✓ Neu starten';
-    alert(`Update auf Version ${r.version} geladen.\n\nJetzt den Screener neu starten:\nDas schwarze Fenster (Terminal) schließen und wieder über start_mac.command bzw. start_windows.bat starten.`);
-  }catch(e){alert('Update fehlgeschlagen. Internet da?');b.disabled=false;b.textContent='⬇ Update';}
-};
+    if(!r.ok){$('#updErr').textContent=r.error;b.disabled=false;b.textContent='Jetzt updaten';return;}
+    $('#updBody').innerHTML=`<p><b>✓ Version ${esc(r.version)} ist geladen.</b></p><p>Jetzt den Screener einmal neu starten:<br>Das schwarze Fenster (Terminal) schließen und wieder über <b>start_mac.command</b> (Mac) bzw. <b>start_windows.bat</b> (Windows) starten.</p>`;
+    b.style.display='none';$('#updLater').textContent='Schließen';$('#btnUpd').textContent='✓ Neu starten';$('#btnUpd').disabled=true;
+  }catch(e){$('#updErr').textContent='Update fehlgeschlagen. Internet da?';b.disabled=false;b.textContent='Jetzt updaten';}
+}
+$('#updNow').onclick=doUpdate;
+$('#updLater').onclick=()=>$('#upd').close();
+$('#btnUpd').onclick=()=>$('#upd').showModal();
 openSetup(false);checkUpdate();
 
 </script>
